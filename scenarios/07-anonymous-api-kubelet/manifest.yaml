@@ -1,0 +1,46 @@
+# ==========================================================================
+# scenarios/07-anonymous-api-kubelet/manifest.yaml
+# DEFECT: anonymous / unauthenticated principals are granted real read access to
+# the API server. Binds the built-in groups system:unauthenticated and
+# system:anonymous to a ClusterRole that can read pods, nodes, and secrets.
+# Namespace: anon-api (the ClusterRole/binding are cluster-scoped)
+#
+# This models the "anonymous API access" class. A companion kubelet-attack
+# walkthrough is in the README (kubelet reconfiguration isn't practical to bake
+# into kind, so we demonstrate the API-server half here and document the rest).
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: anon-api
+  labels:
+    lab: k8s-sec-lab
+    scenario: "07-anonymous-api-kubelet"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: anonymous-snoop
+  labels: { lab: k8s-sec-lab }
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "nodes", "namespaces", "secrets", "serviceaccounts"]
+    verbs: ["get", "list"]
+---
+# !!! THE VULNERABILITY !!! grant that role to unauthenticated callers.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: anonymous-snoop-binding
+  labels: { lab: k8s-sec-lab }
+subjects:
+  - kind: Group
+    name: system:unauthenticated
+    apiGroup: rbac.authorization.k8s.io
+  - kind: Group
+    name: system:anonymous
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: anonymous-snoop
+  apiGroup: rbac.authorization.k8s.io

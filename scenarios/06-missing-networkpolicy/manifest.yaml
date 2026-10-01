@@ -1,0 +1,74 @@
+# ==========================================================================
+# scenarios/06-missing-networkpolicy/manifest.yaml
+# DEFECT: a namespace with a sensitive backend (unauthenticated Redis) and a
+# frontend, and NO NetworkPolicy. By default Kubernetes networking is flat --
+# every pod can reach every other pod/service, enabling lateral movement.
+# Namespace: netpol-missing
+#
+# IMPORTANT (kind): the default kindnet CNI does NOT enforce NetworkPolicy.
+# The "flat network" attack works on kind; the remediation policy only ENFORCES
+# on a policy-capable CNI (Calico/Cilium on kind, or Azure CNI+Calico on AKS).
+# See README for how to make enforcement real on kind.
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: netpol-missing
+  labels:
+    lab: k8s-sec-lab
+    scenario: "06-missing-networkpolicy"
+---
+# Sensitive backend: Redis with NO authentication (stand-in for an internal DB).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-redis
+  namespace: netpol-missing
+  labels: { app: backend-redis }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: backend-redis } }
+  template:
+    metadata:
+      labels: { app: backend-redis, lab: k8s-sec-lab }
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0
+          imagePullPolicy: IfNotPresent
+          ports: [{ containerPort: 6379 }]
+          resources:
+            requests: { cpu: "25m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-redis
+  namespace: netpol-missing
+spec:
+  selector: { app: backend-redis }
+  ports: [{ port: 6379, targetPort: 6379 }]
+---
+# An unrelated frontend that should NOT need to talk to the DB directly.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: netpol-missing
+  labels: { app: frontend }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: frontend } }
+  template:
+    metadata:
+      labels: { app: frontend, lab: k8s-sec-lab }
+    spec:
+      containers:
+        - name: frontend
+          image: redis:7.2-alpine@sha256:29e8589c3f9ba699b5f7aa4b3c7733c58852a3626439e619aa0ee78de08c6ca0    # reuse image: ships redis-cli, tiny
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }

@@ -1,0 +1,95 @@
+# ==========================================================================
+# scenarios/05-secrets-exposure/manifest.yaml
+# DEFECT: sensitive values stored insecurely -- plaintext in a ConfigMap, and a
+# Secret injected as environment variables -- plus an over-broad RoleBinding that
+# lets the namespace default SA read all secrets. Env vars and ConfigMaps leak
+# easily (crashes, `kubectl describe`, child processes, logs).
+# Namespace: secrets-exp
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: secrets-exp
+  labels:
+    lab: k8s-sec-lab
+    scenario: "05-secrets-exposure"
+---
+# DEFECT A: credentials sitting in a ConfigMap (NOT a Secret, and unencrypted).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: secrets-exp
+data:
+  DB_HOST: "db.internal"
+  # These do not belong in a ConfigMap.
+  DB_USER: "admin"
+  DB_PASSWORD: "FAKE_LAB_DB_PASSWORD"
+  THIRD_PARTY_API_KEY: "FAKE_LAB_API_KEY"
+---
+# A Secret (base64 is encoding, NOT encryption) -- injected insecurely below.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+  namespace: secrets-exp
+type: Opaque
+stringData:
+  AWS_SECRET_ACCESS_KEY: "FAKE_LAB_AWS_SECRET_ACCESS_KEY"
+  JWT_SIGNING_KEY: "FAKE_LAB_JWT_SIGNING_KEY"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  namespace: secrets-exp
+  labels:
+    app: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+        lab: k8s-sec-lab
+    spec:
+      containers:
+        - name: app
+          image: alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          # DEFECT B: secrets + config as ENV VARS (leak via describe/logs/procfs).
+          envFrom:
+            - configMapRef: { name: app-config }
+            - secretRef:    { name: app-secret }
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+---
+# DEFECT C: any SA in this namespace can read ALL secrets (over-broad binding).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: read-all-secrets
+  namespace: secrets-exp
+rules:
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default-can-read-secrets
+  namespace: secrets-exp
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: secrets-exp
+roleRef:
+  kind: Role
+  name: read-all-secrets
+  apiGroup: rbac.authorization.k8s.io

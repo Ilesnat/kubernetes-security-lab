@@ -1,0 +1,129 @@
+# ==========================================================================
+# scenarios/04-hostpath-node-escape/manifest.yaml
+# DEFECT: a non-privileged pod mounts sensitive host paths via hostPath. No
+# host namespaces are used, but the kubelet pod directory can expose other
+# pods' projected credentials and mounted data.
+# Namespace: hostpath-esc
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: hostpath-esc
+  labels:
+    lab: k8s-sec-lab
+    scenario: "04-hostpath-node-escape"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: victim-sa
+  namespace: hostpath-esc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: victim-pod-reader
+  namespace: hostpath-esc
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: victim-pod-reader
+  namespace: hostpath-esc
+subjects:
+  - kind: ServiceAccount
+    name: victim-sa
+    namespace: hostpath-esc
+roleRef:
+  kind: Role
+  name: victim-pod-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hostpath-victim
+  namespace: hostpath-esc
+  labels:
+    app: hostpath-victim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hostpath-victim
+  template:
+    metadata:
+      labels:
+        app: hostpath-victim
+        lab: k8s-sec-lab
+    spec:
+      serviceAccountName: victim-sa
+      containers:
+        - name: victim
+          image: alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "sleep infinity"]
+          resources:
+            requests: { cpu: "10m", memory: "24Mi" }
+            limits: { cpu: "100m", memory: "64Mi" }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hostpath-app
+  namespace: hostpath-esc
+  labels:
+    app: hostpath-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hostpath-app
+  template:
+    metadata:
+      labels:
+        app: hostpath-app
+        lab: k8s-sec-lab
+    spec:
+      # Note: NOT privileged, NO hostPID/hostNetwork. Only hostPath volumes.
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: kubernetes.io/hostname
+              labelSelector:
+                matchLabels:
+                  app: hostpath-victim
+              namespaces:
+                - hostpath-esc
+      automountServiceAccountToken: false
+      containers:
+        - name: app
+          image: alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          securityContext:
+            privileged: false
+            allowPrivilegeEscalation: false
+          volumeMounts:
+            - name: kubelet-dir     # other pods' mounted secrets live here
+              mountPath: /host-kubelet
+            - name: host-etc        # node config, incl. kubernetes manifests
+              mountPath: /host-etc
+              readOnly: true
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+      volumes:
+        # !!! THE VULNERABILITY !!! sensitive host paths mounted into a normal pod.
+        - name: kubelet-dir
+          hostPath:
+            path: /var/lib/kubelet/pods
+            type: DirectoryOrCreate
+        - name: host-etc
+          hostPath:
+            path: /etc
+            type: Directory

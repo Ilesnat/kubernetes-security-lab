@@ -1,0 +1,44 @@
+# AKS-only identity path. No Service or public endpoint is created.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aks-imds
+  labels:
+    lab: k8s-sec-lab
+    scenario: "09-aks-imds-managed-identity"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: imds-probe
+  namespace: aks-imds
+automountServiceAccountToken: false
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: imds-probe
+  namespace: aks-imds
+  labels:
+    app: imds-probe
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: imds-probe
+  template:
+    metadata:
+      labels:
+        app: imds-probe
+        lab: k8s-sec-lab
+    spec:
+      serviceAccountName: imds-probe
+      automountServiceAccountToken: false
+      containers:
+        - name: probe
+          image: python:3.12-alpine@sha256:4c47124a8391cb7a9f571164147d154777cf012a4ece5f86097130d7a4478111
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c", "sleep infinity"]
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits: { cpu: "100m", memory: "96Mi" }

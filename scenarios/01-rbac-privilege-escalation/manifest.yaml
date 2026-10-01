@@ -1,0 +1,68 @@
+# ==========================================================================
+# scenarios/01-rbac-privilege-escalation/manifest.yaml
+# DEFECT: an over-permissive ClusterRoleBinding grants a namespaced, "low-priv"
+# application ServiceAccount the built-in cluster-admin ClusterRole. Any pod
+# running as that SA (and anyone who can exec into it) is effectively root on
+# the whole cluster.
+# Namespace: rbac-esc   |   Toggle: kubectl apply/delete -f this file
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: rbac-esc
+  labels:
+    lab: k8s-sec-lab
+    scenario: "01-rbac-privilege-escalation"
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-sa
+  namespace: rbac-esc
+---
+# !!! THE VULNERABILITY !!!
+# Binds a namespaced app SA to the cluster-wide cluster-admin role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: app-sa-is-cluster-admin
+  labels:
+    lab: k8s-sec-lab
+subjects:
+  - kind: ServiceAccount
+    name: app-sa
+    namespace: rbac-esc
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin          # <-- over-permissive
+  apiGroup: rbac.authorization.k8s.io
+---
+# A perfectly ordinary-looking app pod that happens to run as the over-priv SA.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: rbac-esc
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+        lab: k8s-sec-lab
+    spec:
+      serviceAccountName: app-sa        # mounts the cluster-admin token
+      automountServiceAccountToken: true
+      containers:
+        - name: web
+          image: rancher/kubectl:v1.30.7@sha256:3750265967220a90fa188cad4cf790ccf410006a32310cba22f513ce3fce845d
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }

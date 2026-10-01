@@ -1,0 +1,45 @@
+# ==========================================================================
+# tooling/audit/audit-policy.yaml
+# Kubernetes API server audit policy, mounted into the kind control-plane by
+# cluster/kind/kind-config.yaml. Gives you an audit trail to correlate with
+# attacks during the detection labs.
+# ==========================================================================
+apiVersion: audit.k8s.io/v1
+kind: Policy
+# Don't log routine noise.
+omitStages:
+  - RequestReceived
+rules:
+  # Never log confidential token reviews (avoid leaking tokens).
+  - level: None
+    resources:
+      - group: "authentication.k8s.io"
+        resources: ["tokenreviews"]
+
+  # High-signal: secrets/configmaps access at Metadata (who/when, not the data).
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets", "configmaps"]
+
+  # High-signal: exec / attach / port-forward into pods (post-exploitation).
+  - level: RequestResponse
+    resources:
+      - group: ""
+        resources: ["pods/exec", "pods/attach", "pods/portforward"]
+
+  # RBAC changes (privilege escalation).
+  - level: RequestResponse
+    resources:
+      - group: "rbac.authorization.k8s.io"
+        resources: ["roles", "clusterroles", "rolebindings", "clusterrolebindings"]
+
+  # Pod create/delete at Metadata (spotting privileged / hostPath pods).
+  - level: Metadata
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: ""
+        resources: ["pods"]
+
+  # Everything else: minimal.
+  - level: Metadata

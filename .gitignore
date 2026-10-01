@@ -1,0 +1,54 @@
+# ==========================================================================
+# k8s-sec-lab .gitignore -- keep ALL secrets & generated artifacts out of git.
+# This repo is intentionally vulnerable; never commit anything sensitive.
+# ==========================================================================
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# Kubeconfig / cluster credentials
+kubeconfig*
+*.kubeconfig
+.kube/
+admin.conf
+
+# Azure credentials / service principals
+azureauth.json
+sp.json
+*.azureauth
+.azure/
+service-principal*.json
+credentials*.json
+azure-credentials*.json
+*azure-profile*.json
+
+# Keys & certs
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*.cer
+
+# Terraform state (if ever added)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Generated cluster / run artifacts
+.artifacts/
+*.log
+out/
+tmp/
+kind-single-*.yaml
+
+# Auto-destroy watchdog state
+.lab-state/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

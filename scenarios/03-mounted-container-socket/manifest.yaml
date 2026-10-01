@@ -1,0 +1,53 @@
+# ==========================================================================
+# scenarios/03-mounted-container-socket/manifest.yaml
+# DEFECT: a pod mounts the node's container-runtime socket directory (/var/run,
+# which holds containerd.sock on kind nodes and docker.sock on Docker hosts).
+# Access to the runtime socket = ability to launch new containers on the node
+# with any settings -> full host takeover, bypassing all pod-level controls.
+# Namespace: sock-mount
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sock-mount
+  labels:
+    lab: k8s-sec-lab
+    scenario: "03-mounted-container-socket"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: socket-app
+  namespace: sock-mount
+  labels:
+    app: socket-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: socket-app
+  template:
+    metadata:
+      labels:
+        app: socket-app
+        lab: k8s-sec-lab
+    spec:
+      containers:
+        - name: app
+          # Image ships crictl/ctr-style tooling is NOT present; we install on
+          # demand in the walkthrough. Alpine keeps it tiny and honest.
+          image: alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          volumeMounts:
+            # !!! THE VULNERABILITY !!! mounting the runtime socket directory.
+            - name: run-dir
+              mountPath: /host-run
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+      volumes:
+        - name: run-dir
+          hostPath:
+            path: /var/run          # contains containerd.sock (kind) / docker.sock (Docker)
+            type: Directory

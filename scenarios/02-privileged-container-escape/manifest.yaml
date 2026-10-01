@@ -1,0 +1,60 @@
+# ==========================================================================
+# scenarios/02-privileged-container-escape/manifest.yaml
+# DEFECT: a pod runs with securityContext.privileged: true plus hostPID and
+# hostNetwork, and mounts the host root filesystem. This collapses the
+# container boundary -> trivial escape to the underlying node.
+# Namespace: priv-esc   |   Toggle: kubectl apply/delete -f this file
+#
+# NOTE (kind vs AKS): on kind the "node" is a Docker container on your laptop,
+# so escaping lands you in that container (still a great teaching target). On
+# AKS the node is a real VM -> escaping lands you on the actual host VM.
+# ==========================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: priv-esc
+  labels:
+    lab: k8s-sec-lab
+    scenario: "02-privileged-container-escape"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: privileged-app
+  namespace: priv-esc
+  labels:
+    app: privileged-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: privileged-app
+  template:
+    metadata:
+      labels:
+        app: privileged-app
+        lab: k8s-sec-lab
+    spec:
+      # !!! THE VULNERABILITIES !!!
+      hostPID: true            # see & signal host processes (nsenter target)
+      hostNetwork: true        # share the node's network namespace
+      hostIPC: true
+      containers:
+        - name: app
+          image: alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+          securityContext:
+            privileged: true           # <-- all capabilities, device access
+            allowPrivilegeEscalation: true
+          volumeMounts:
+            - name: host-root
+              mountPath: /host          # <-- entire node filesystem mounted
+          resources:
+            requests: { cpu: "10m", memory: "32Mi" }
+            limits:   { cpu: "250m", memory: "128Mi" }
+      volumes:
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory

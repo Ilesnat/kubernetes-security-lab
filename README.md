@@ -3,8 +3,6 @@
 A disposable, intentionally vulnerable Kubernetes lab for learning attack paths and defensive controls on kind or AKS.
 
 > **AUTHORIZED, SELF-OWNED RESEARCH ONLY.** Use only on clusters and subscriptions you own and control. Never connect these workloads to corporate, shared, or production environments.
->
-> **Keep this repo PRIVATE — intentionally vulnerable configs + working exploit steps. Do not publish publicly without sanitizing.** Exposing a vulnerable AKS cluster can put your personal subscription, identity, and employer at risk.
 
 ## Architecture
 
@@ -115,26 +113,14 @@ More detail: [`docs/learning-path.md`](docs/learning-path.md), [`docs/architectu
 
 ## Source control safety
 
-`.env`, kubeconfigs, Azure credentials, certificates, and generated state are ignored. A Gitleaks pre-commit hook is configured in `.pre-commit-config.yaml`; enable it before the first commit:
+`.env`, kubeconfigs, Azure credentials, certificates, and generated state are ignored. A Gitleaks pre-commit hook is configured in `.pre-commit-config.yaml`. Install and run it with:
 
 ```powershell
 pre-commit install
 pre-commit run --all-files
 ```
 
-Review the staged changes and scan results yourself before publishing. When ready, create an **empty private** GitHub repository and run:
-
-```powershell
-git init
-git add .
-git status
-git commit -m "Initial Kubernetes security lab"
-git remote add origin git@github.com:<you>/k8s-sec-lab.git
-git branch -M main
-git push -u origin main
-```
-
-Never run those publish commands until you have reviewed the files and confirmed `.env` is not staged.
+Before committing or publishing, review the staged files and scan results, and confirm `.env` is not staged.
 
 ## License
 

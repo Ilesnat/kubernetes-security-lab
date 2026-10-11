@@ -1,0 +1,27 @@
+title = "k8s-sec-lab gitleaks config"
+
+# Extends gitleaks' built-in rule set (API keys, tokens, private keys, etc.)
+# with checks specific to this repo: real Azure subscription/tenant
+# identifiers must live only in the gitignored .env file, never in a tracked
+# file (manifest.yaml, README, the build prompt, etc.). Default rules alone
+# do not flag a bare GUID or *.onmicrosoft.com domain -- that's exactly how
+# a real subscription/tenant ID ended up committed in k8s-sec-lab-prompt.md.
+[extend]
+useDefault = true
+
+[[rules]]
+id = "k8s-sec-lab-azure-subscription-id"
+description = "Azure subscription ID committed outside .env"
+regex = '''(?i)subscription[ _-]?id[^\n]{0,8}[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'''
+tags = ["azure", "k8s-sec-lab"]
+
+[[rules]]
+id = "k8s-sec-lab-azure-tenant-domain"
+description = "Real Azure tenant *.onmicrosoft.com domain committed outside .env"
+regex = '''[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]\.onmicrosoft\.com'''
+tags = ["azure", "k8s-sec-lab"]
+
+[allowlist]
+paths = [
+  '''(^|/)\.env\.example$''',
+]

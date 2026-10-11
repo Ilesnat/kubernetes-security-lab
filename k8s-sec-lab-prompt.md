@@ -80,7 +80,7 @@ Process:
 - Tools I'll install: Docker, kind, kubectl, helm, Azure CLI. Give exact Windows install steps.
 - Azure target is my PERSONAL Visual Studio Enterprise Subscription:
     Subscription ID: <SUB>
-    Tenant:  
+    Tenant: <TENANT> (personal, NOT Microsoft corporate)
   This subscription has a ~$150/month Visual Studio Azure credit — money IS a concern, so cost
   control is a first-class requirement, not an afterthought.
 - Every AKS script must, before creating anything:

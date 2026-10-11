@@ -126,22 +126,33 @@ function Deploy-Scenarios {
             Sort-Object Name
     if (-not $dirs) { Write-Warn "No scenarios found."; return }
 
+    $unhealthy = @()
     foreach ($d in $dirs) {
         if ($Only -and $Only.Count -gt 0 -and ($Only -notcontains $d.Name)) { continue }
         $manifest = Join-Path $d.FullName 'manifest.yaml'
         if (-not (Test-Path $manifest)) { continue }
         Write-Info "Deploying scenario: $($d.Name)"
-        Invoke-Kubectl apply -f $manifest
+        try {
+            Invoke-Kubectl apply -f $manifest
 
-        $namespace = & kubectl get namespaces -l "scenario=$($d.Name)" -o 'jsonpath={.items[0].metadata.name}'
-        if ($LASTEXITCODE -ne 0) { throw "Unable to find namespace for scenario '$($d.Name)'." }
-        if ($namespace) {
-            $deployments = & kubectl get deployments -n $namespace -o name
-            if ($LASTEXITCODE -ne 0) { throw "Unable to inspect deployments in namespace '$namespace'." }
-            if ($deployments) {
-                Invoke-Kubectl wait --for=condition=Available deployment --all -n $namespace --timeout=180s
+            $namespace = & kubectl get namespaces -l "scenario=$($d.Name)" -o 'jsonpath={.items[0].metadata.name}'
+            if ($LASTEXITCODE -ne 0) { throw "Unable to find namespace for scenario '$($d.Name)'." }
+            if ($namespace) {
+                $deployments = & kubectl get deployments -n $namespace -o name
+                if ($LASTEXITCODE -ne 0) { throw "Unable to inspect deployments in namespace '$namespace'." }
+                if ($deployments) {
+                    Invoke-Kubectl wait --for=condition=Available deployment --all -n $namespace --timeout=180s
+                }
             }
+        } catch {
+            Write-Warn "Scenario '$($d.Name)' did not become Available: $($_.Exception.Message)"
+            Write-Warn "Its manifest was applied; inspect with 'kubectl get pods -n <namespace>' before relying on it. Continuing with remaining scenarios."
+            $unhealthy += $d.Name
         }
+    }
+
+    if ($unhealthy.Count -gt 0) {
+        Write-Warn "Scenario(s) did not reach Available within timeout: $($unhealthy -join ', ')."
     }
 }
 

@@ -79,14 +79,14 @@ Process:
     BACKEND=aks  -> Azure Kubernetes Service via Azure CLI
 - Tools I'll install: Docker, kind, kubectl, helm, Azure CLI. Give exact Windows install steps.
 - Azure target is my PERSONAL Visual Studio Enterprise Subscription:
-    Subscription ID: REDACTED-SUBSCRIPTION-ID
-    Tenant: redacted-tenant.onmicrosoft.com (personal, NOT Microsoft corporate)
+    Subscription ID: <SUB>
+    Tenant:  
   This subscription has a ~$150/month Visual Studio Azure credit — money IS a concern, so cost
   control is a first-class requirement, not an afterthought.
 - Every AKS script must, before creating anything:
     * read the target subscription ID from .env,
     * run `az account show` and FAIL FAST if the active subscription ID does not match
-      REDACTED-SUBSCRIPTION-ID, printing a clear "wrong subscription" error,
+      <SUB>, printing a clear "wrong subscription" error,
     * so I can never accidentally deploy the vulnerable lab into the wrong tenant/subscription.
 
 # LOCAL RUNTIME (Docker Desktop + kind)

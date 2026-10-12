@@ -4,8 +4,9 @@ a small team of specialist sub-agents. Build me a self-contained, reproducible K
 security research lab that I can spin up with a single command — either LOCALLY or in AZURE —
 run offensive tests against, and tear down cleanly and completely. This is for legitimate,
 isolated, self-owned security research and learning: a deliberately vulnerable ("defective")
-environment. I will store it in a PRIVATE GitHub repo and clone it across machines and Azure
-Cloud Shell.
+environment. I will store it in a public GitHub repo and clone it across machines and Azure
+Cloud Shell. No real secrets or identifiers may ever be committed; all of that lives only in the
+gitignored .env file.
 
 # DEPLOYMENT AUTHORITY — build only, do NOT deploy to Azure
 - Your job is to GENERATE the repo (scripts, manifests, docs) so it is complete and ready for me
@@ -32,7 +33,8 @@ Sub-agent roles:
 - INTENT-REVIEWER: before building, restates MY intent and success criteria in its own words and
   checks the Architect's plan against them. Flags any drift from: push-button up/down, complete
   cloud teardown, cost control on a $150/mo credit, correct subscription targeting, build-only
-  (no unsolicited cloud deploy), teaching notes per scenario, and private-repo safety. The build
+  (no unsolicited cloud deploy), teaching notes per scenario, and repo secret-hygiene (no real
+  identifiers or credentials ever committed). The build
   does not proceed until intent is confirmed aligned.
 - BUILDER(s): implement one phase at a time (e.g. one builder for cluster provisioning, one for
   scenarios, one for tooling, one for docs). Each builder produces real file contents for its
@@ -179,12 +181,12 @@ differently on AKS vs kind.
 Provide install steps and a one-liner to run each scanner against the lab.
 
 # SOURCE CONTROL & PROJECT STORAGE
-- Structure as a Git repo for a PRIVATE GitHub repo; assume cloning across machines and Azure
+- Structure as a Git repo for a public GitHub repo; assume cloning across machines and Azure
   Cloud Shell.
-- I will create and push the private repo MYSELF. Do NOT run any git remote/push commands or
+- I will create and push the repo MYSELF. Do NOT run any git remote/push commands or
   create the GitHub repo. Produce a clean, commit-ready working tree with a complete .gitignore,
   .env.example, README, and LICENSE so my first commit is safe and self-explanatory. End with a
-  short "How to publish this to your own private GitHub" note (git init / remote add / push) I
+  short "How to publish this to your own GitHub" note (git init / remote add / push) I
   can run when ready.
 - Strong .gitignore excluding: kubeconfig files, .env/secrets, Azure creds, service principal
   JSON, *.pem/*.key, terraform state, generated cluster artifacts. Nothing sensitive committable.
@@ -192,9 +194,10 @@ Provide install steps and a one-liner to run each scanner against the lab.
   node size) live in `.env.example` -> copy to `.env` (gitignored). Scripts read .env; never
   hardcode identifiers in tracked files (the subscription ID above may appear only in
   .env.example as a default I can override).
-- README must state: "Keep this repo PRIVATE — intentionally vulnerable configs + working
-  exploit steps. Do not publish publicly without sanitizing." Plus an authorized-research-only
-  disclaimer.
+- README must state an authorized-research-only disclaimer up top: deliberately vulnerable
+  configs and working exploit steps, for use only on self-owned, isolated clusters/subscriptions.
+  No real secrets, identifiers, or credentials may ever be committed -- everything environment-
+  specific lives only in the gitignored .env.
 - Add a gitleaks (or git-secrets) pre-commit scan to block accidental credential commits.
 
 # REPO POSITIONING & PRESENTATION
@@ -202,8 +205,8 @@ Provide install steps and a one-liner to run each scanner against the lab.
   only" disclaimer up top, architecture diagram (ASCII or mermaid), prerequisites, quickstart,
   scenario index table (name | vuln class | difficulty | local/AKS | MITRE technique), and a
   learning-path section.
-- Make it skimmable and professional enough to show as a portfolio piece IF I later sanitize
-  and fork a public version — but written assuming it stays private.
+- Make it skimmable and professional enough to show as a portfolio piece -- it's public from
+  day one, so every tracked file should assume a stranger is reading it.
 - Use per-scenario READMEs plus a docs/ folder so knowledge is easy to navigate.
 - Consistent naming; include a "how to add a new scenario" doc so the lab is easy to extend.
 

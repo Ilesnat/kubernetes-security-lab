@@ -42,7 +42,6 @@ azure-credentials*.json
 *.log
 out/
 tmp/
-kind-single-*.yaml
 
 # Auto-destroy watchdog state
 .lab-state/
